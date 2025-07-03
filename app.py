@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
-# Streamlit config
+# Streamlit page config
 st.set_page_config(page_title="Air Traffic Dashboard", layout="wide")
 st.title("✈️ Air Traffic Data Analysis Dashboard")
 st.markdown("This dashboard provides interactive analysis of air traffic data.")
@@ -22,16 +22,24 @@ def load_data():
 data = load_data()
 
 # Sidebar filters
-airlines = st.sidebar.multiselect("Select Airline(s):", options=data['Operating Airline'].unique(), default=data['Operating Airline'].unique())
-years = st.sidebar.multiselect("Select Year(s):", options=data['Year'].unique(), default=data['Year'].unique())
+airlines = st.sidebar.multiselect(
+    "Select Airline(s):", 
+    options=sorted(data['Operating Airline'].dropna().unique()), 
+    default=sorted(data['Operating Airline'].dropna().unique())
+)
+years = st.sidebar.multiselect(
+    "Select Year(s):", 
+    options=sorted(data['Year'].dropna().unique()), 
+    default=sorted(data['Year'].dropna().unique())
+)
 
-# Filter data
+# Apply filters
 filtered = data[(data['Operating Airline'].isin(airlines)) & (data['Year'].isin(years))]
 
-# Tabs
+# Tabs for different views
 tab1, tab2, tab3 = st.tabs(["📊 EDA", "📈 Time Series", "🗺️ Map"])
 
-# --- Tab 1: EDA ---
+# --- 📊 Tab 1: EDA ---
 with tab1:
     st.subheader("Distribution of Flights by Airline")
 
@@ -39,12 +47,11 @@ with tab1:
         filtered["Operating Airline"]
         .value_counts()
         .reset_index()
-        .rename(columns={"index": "Operating Airline", "Operating Airline": "Flight Count"})
-        .sort_values("Flight Count", ascending=True)
     )
+    airline_counts.columns = ["Operating Airline", "Flight Count"]
 
     fig1 = px.bar(
-        airline_counts,
+        airline_counts.sort_values("Flight Count", ascending=True),
         x="Flight Count",
         y="Operating Airline",
         orientation="h",
@@ -52,17 +59,16 @@ with tab1:
         color_continuous_scale="Blues",
         title="✈️ Flight Distribution by Airline"
     )
-
-    fig1.update_layout(height=1000, yaxis_title="Airline", xaxis_title="Number of Flights")
+    fig1.update_layout(height=800, yaxis_title="Airline", xaxis_title="Number of Flights")
     st.plotly_chart(fig1, use_container_width=True)
 
-    # --- Passenger Trends Line Chart ---
+    # Passenger trends
     st.subheader("Monthly Passenger Trends")
     monthly = filtered.groupby('Date')['Passenger Count'].sum().reset_index()
     fig2 = px.line(monthly, x='Date', y='Passenger Count', title='📈 Monthly Passenger Traffic')
     st.plotly_chart(fig2, use_container_width=True)
 
-# --- Tab 2: Heatmap ---
+# --- 📈 Tab 2: Time Series ---
 with tab2:
     st.subheader("Seasonal Passenger Heatmap")
     pivot = filtered.groupby(['Year', 'Month'])['Passenger Count'].sum().reset_index()
@@ -71,7 +77,7 @@ with tab2:
     sns.heatmap(pivot_data, cmap='YlGnBu', annot=True, fmt=".0f", ax=ax3)
     st.pyplot(fig3)
 
-# --- Tab 3: Geo Map ---
+# --- 🗺️ Tab 3: Geo Map ---
 with tab3:
     st.subheader("Flight Distribution Map")
     if "Passenger Count" in filtered.columns:
